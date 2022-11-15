@@ -1,0 +1,153 @@
+generator client {
+  provider = "prisma-client-js"
+  previewFeatures = ["fullTextSearch", "fullTextIndex"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model AccreditedBank {
+  bank_no               BigInt                @id @default(autoincrement())
+  rr_no                 Int
+  rdo_no                Int
+  bank_code             String                @db.VarChar(10)
+  bank_abbr             String                @db.VarChar(10)
+  bank_branch           String                @db.VarChar(50)
+  bldg_no               String?               @db.VarChar(100)
+  street                String                @db.VarChar(100)
+  district              String                @db.VarChar(50)
+  city                  String                @db.VarChar(15)
+  BankDetails           BankDetails           @relation(fields: [bank_abbr], references: [bank_abbr])
+  RevenueDistrictOffice RevenueDistrictOffice @relation(fields: [rdo_no], references: [rdo_no])
+}
+
+model BankDetails {
+  bank_abbr      String           @id @db.VarChar(10)
+  bank_name      String           @db.VarChar(50)
+  bank_logo      String?          @db.VarChar(100)
+  AccreditedBank AccreditedBank[]
+}
+
+model CharterOfficeDivision {
+  office_code    String         @db.VarChar(20)
+  charter_uid    String         @db.VarChar(50)
+  CitizenCharter CitizenCharter @relation(fields: [charter_uid], references: [charter_uid], onDelete: Cascade)
+  OfficeDivision OfficeDivision @relation(fields: [office_code], references: [code])
+
+  @@id([office_code, charter_uid])
+}
+
+model CharterRegistry {
+  registry_id     Int            @id @default(autoincrement())
+  classification  String
+  register_office String
+  charter_uid     String         @db.VarChar(50)
+  CitizenCharter  CitizenCharter @relation(fields: [charter_uid], references: [charter_uid], onDelete: Cascade)
+}
+
+model CharterTransaction {
+  charter_uid    String         @db.VarChar(50)
+  trans_type     String         @db.VarChar(10)
+  CitizenCharter CitizenCharter @relation(fields: [charter_uid], references: [charter_uid], onDelete: Cascade)
+  Transaction    Transaction    @relation(fields: [trans_type], references: [type])
+
+  @@id([charter_uid, trans_type])
+}
+
+model CitizenCharter {
+  charter_uid           String                  @id @db.VarChar(50) @default(uuid())
+  title                 String
+  description           String
+  classification        String                  @db.VarChar(50)
+  total_fee             Float                   @default(0)
+  total_duration        String                  @db.VarChar(50) @default("None")
+  agent_process         AgentProcess[]
+  CharterOfficeDivision CharterOfficeDivision[]
+  CharterRegistry       CharterRegistry[]
+  CharterTransaction    CharterTransaction[]
+  client_process        ClientProcess[]
+  AdditionalRequirement AdditionalRequirement[]
+  TaxpayerRequirements  TaxpayerRequirements[]
+}
+
+model OfficeDivision {
+  code                  String                  @id @db.VarChar(20)
+  name                  String                  @db.VarChar(255)
+  CharterOfficeDivision CharterOfficeDivision[]
+}
+
+model AdditionalRequirement {
+  add_req_id           Int                   @id @default(autoincrement())
+  condition            String                @db.Text
+  charter_uid          String                @db.VarChar(50)
+  CitizenCharter       CitizenCharter        @relation(fields: [charter_uid], references: [charter_uid], onDelete: Cascade)
+  requirements         Requirements[]
+}
+
+model Requirements {
+  req_id               Int                   @id @default(autoincrement())
+  req_name             String                @db.VarChar(255)
+  req_desc             String
+  notes                String?
+  type                 String                @default("other") @db.VarChar(10)
+  additional           Boolean               @default(false)
+  taxpayer_id          Int?
+  add_req_id           Int?                   
+  AdditionalRequirement  AdditionalRequirement?    @relation(fields: [add_req_id], references: [add_req_id])
+  TaxpayerRequirements   TaxpayerRequirements? @relation(fields: [taxpayer_id], references: [taxpayer_id])
+  sources                Sources[]
+}
+
+model RevenueDistrictOffice {
+  rdo_no         Int              @id
+  rdo_name       String           @db.VarChar(30)
+  AccreditedBank AccreditedBank[]
+}
+
+model TaxpayerRequirements {
+  taxpayer_id    Int            @id @default(autoincrement())
+  taxpayer_name  String         @db.Text
+  charter_uid    String         @db.VarChar(50)
+  CitizenCharter CitizenCharter @relation(fields: [charter_uid], references: [charter_uid], onDelete: Cascade)
+  Requirements   Requirements[]
+}
+
+model Transaction {
+  type               String               @id @db.VarChar(10)
+  name               String               @db.VarChar(100)
+  CharterTransaction CharterTransaction[]
+}
+
+model ClientProcess {
+  process_step Float
+  charter_uid  String         @db.VarChar(50)
+  step_desc    String
+  notes        String?        @db.Text
+  fees         Float?
+  duration     String         @db.VarChar(100)
+  personnel    String         @db.Text
+  charter      CitizenCharter @relation(fields: [charter_uid], references: [charter_uid], onDelete: Cascade)
+
+  @@id([process_step, charter_uid])
+}
+
+model AgentProcess {
+  process_step Float
+  charter_uid  String         @db.VarChar(50)
+  step_desc    String
+  duration     String         @db.VarChar(100) @default("None")
+  personnel    String         @db.Text @default("None")
+  charter      CitizenCharter @relation(fields: [charter_uid], references: [charter_uid], onDelete: Cascade)
+
+  @@id([process_step, charter_uid])
+}
+
+model Sources {
+  src_id       Int          @id @default(autoincrement())
+  src_name     String       @db.VarChar(255)
+  src_desc     String?
+  req_id       Int
+  requirements Requirements @relation(fields: [req_id], references: [req_id])
+}
